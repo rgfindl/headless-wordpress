@@ -1,0 +1,25 @@
+version: 0.1
+stack:
+  name: headless-wp-ecs # Note: Update this with your stack name
+  template:
+    file: ecs.stack.yml
+    bucket: cim-stack-artifacts # Note: Update this with your bucket name.  Stacks are uploaded here prior to deployment.'
+
+  #
+  # Define stack input parameters.
+  #
+  parameters:
+    KeyPairName: 'bluefineng'
+    VPCStack: 'headless-wp-vpc'
+
+  #
+  # Define stack capabilities required.
+  #
+  capabilities:
+    - 'CAPABILITY_IAM'
+
+  #
+  # Define global tags.
+  #
+  tags:
+    app: 'headless-wp'

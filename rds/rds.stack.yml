@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2 configuration and ECS Cluster
+Parameters:
+
+  VPCStack:
+    Type: String
+    Description: VPC Stack Name
+
+  ECSStack:
+    Type: String
+    Description: ECS Stack Name
+
+  DatabaseUsername:
+    AllowedPattern: "[a-zA-Z0-9]+"
+    ConstraintDescription: must be between 1 to 16 alphanumeric characters.
+    Description: The database admin account user name, between 1 to 16 alphanumeric characters.
+    MaxLength: '16'
+    MinLength: '1'
+    Type: String
+
+  DatabasePassword:
+    AllowedPattern: "[a-zA-Z0-9]+"
+    ConstraintDescription: must be between 8 to 41 alphanumeric characters.
+    Description: The database admin account password, between 8 to 41 alphanumeric characters.
+    MaxLength: '41'
+    MinLength: '8'
+    NoEcho: 'true'
+    Type: String
+
+  InstanceType:
+    Type: String
+    Default: 'db.t2.micro'
+
+
+Mappings:
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: CloudFormation managed DB subnet group.
+      SubnetIds: 
+        - Fn::ImportValue:
+            !Sub "${VPCStack}-PublicSubnet1ID"
+        - Fn::ImportValue:
+            !Sub "${VPCStack}-PublicSubnet2ID"
+
+  ClusterSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Access to the RDS database
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        ToPort: 3306
+        SourceSecurityGroupId: 
+          Fn::ImportValue:
+            !Sub "${ECSStack}-ECSHostSecurityGroup"
+      VpcId: 
+        Fn::ImportValue:
+          !Sub "${VPCStack}-VPCID"
+
+  RDSCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      MasterUsername: !Ref DatabaseUsername
+      MasterUserPassword: !Ref DatabasePassword
+      Engine: aurora
+      EngineMode: serverless
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VpcSecurityGroupIds: !Ref ClusterSecurityGroup
+      DBClusterParameterGroupName: !Ref RDSDBClusterParameterGroup
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: 01:00-02:00
+      PreferredMaintenanceWindow: mon:03:00-mon:04:00
+
+  PrimaryInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref RDSDBParameterGroup
+      Engine: aurora
+      DBClusterIdentifier: !Ref RDSCluster
+      MultiAZ: true
+      PubliclyAccessible: 'true'
+      AvailabilityZone:
+        Fn::ImportValue:
+          !Sub "${VPCStack}-AvailabilityZone1"
+      DBInstanceClass: !Ref InstanceType
+
+  SecondaryInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref RDSDBParameterGroup
+      Engine: aurora
+      DBClusterIdentifier: !Ref RDSCluster
+      MultiAZ: true
+      PubliclyAccessible: 'true'
+      AvailabilityZone:
+        Fn::ImportValue:
+          !Sub "${VPCStack}-AvailabilityZone2"
+      DBInstanceClass: !Ref InstanceType
+
+
+  RDSDBClusterParameterGroup:
+    Type: AWS::RDS::DBClusterParameterGroup
+    Properties:
+      Description: CloudFormation Sample Aurora Cluster Parameter Group
+      Family: aurora5.6
+      Parameters:
+        time_zone: US/Eastern
+
+  RDSDBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: CloudFormation Sample Aurora Parameter Group
+      Family: aurora5.6
+      Parameters:
+        sql_mode: IGNORE_SPACE
+
+Outputs:
+  DatabaseUsername:
+    Value: !Ref 'DatabaseUsername'
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseUsername'
+  DatabasePassword:
+    Value: !Ref 'DatabasePassword'
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabasePassword'
+  RDSClusterEndpoint:
+    Value: !GetAtt RDSCluster.Endpoint.Address
+    Export:
+      Name: !Sub '${AWS::StackName}-RDSClusterEndpoint'

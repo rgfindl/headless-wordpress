@@ -1,0 +1,20 @@
+version: '3.1'
+
+services:
+
+  headless_wordpress:
+    build: .
+    #image: wordpress
+    restart: always
+    ports:
+      - 8080:80
+    environment:
+      WORDPRESS_DB_PASSWORD: example
+      WORDPRESS_ADDITIONAL_CONFIG: |
+        define( 'AS3CF_AWS_USE_EC2_IAM_ROLE', true );
+
+  mysql:
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: example

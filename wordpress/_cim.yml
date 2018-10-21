@@ -1,0 +1,28 @@
+version: 0.1
+stack:
+  name: headless-wp # Note: Update this with your stack name
+  template:
+    file: wp.stack.yml
+    bucket: cim-stack-artifacts # Note: Update this with your bucket name.  Stacks are uploaded here prior to deployment.'
+
+  #
+  # Define stack input parameters.
+  #
+  parameters:
+    VPCStack: 'headless-wp-vpc'
+    ECSStack: 'headless-wp-ecs'
+    ECRStack: 'headless-wp-ecr'
+    Version: '1.0.0'
+    Path: '/'
+
+  #
+  # Define stack capabilities required.
+  #
+  capabilities:
+    - 'CAPABILITY_IAM'
+
+  #
+  # Define global tags.
+  #
+  tags:
+    app: 'headless-wp'

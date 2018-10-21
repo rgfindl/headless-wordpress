@@ -1,0 +1,25 @@
+version: 0.1
+stack:
+  name: headless-wp-rds # Note: Update this with your stack name
+  template:
+    file: rds.stack.yml
+    bucket: cim-stack-artifacts # Note: Update this with your bucket name.  Stacks are uploaded here prior to deployment.'
+
+  #
+  # Define stack input parameters.
+  #
+  parameters:
+    VPCStack: 'headless-wp-vpc'
+    ECSStack: 'headless-wp-ecs'
+
+  #
+  # Define stack capabilities required.
+  #
+  capabilities:
+    - 'CAPABILITY_IAM'
+
+  #
+  # Define global tags.
+  #
+  tags:
+    app: 'headless-wp'

@@ -1,0 +1,24 @@
+version: 0.1
+stack:
+  name: headless-wp-ecr # Note: Update this with your stack name
+  template:
+    file: ecr.stack.yml
+    bucket: cim-stack-artifacts # Note: Update this with your bucket name.  Stacks are uploaded here prior to deployment.'
+
+  #
+  # Define stack input parameters.
+  #
+  parameters:
+    Service1Name: 'headless-wp'
+
+  #
+  # Define stack capabilities required.
+  #
+  capabilities:
+    - 'CAPABILITY_IAM'
+
+  #
+  # Define global tags.
+  #
+  tags:
+    app: 'headless-wp'
