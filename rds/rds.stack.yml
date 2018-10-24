@@ -11,7 +11,7 @@ Parameters:
     Description: ECS Stack Name
 
   DatabaseUsername:
-    AllowedPattern: "[a-zA-Z0-9]+"
+    AllowedPattern: "^[a-zA-Z0-9]*$"
     ConstraintDescription: must be between 1 to 16 alphanumeric characters.
     Description: The database admin account user name, between 1 to 16 alphanumeric characters.
     MaxLength: '16'
@@ -19,7 +19,7 @@ Parameters:
     Type: String
 
   DatabasePassword:
-    AllowedPattern: "[a-zA-Z0-9]+"
+    AllowedPattern: "^[a-zA-Z0-9]*$"
     ConstraintDescription: must be between 8 to 41 alphanumeric characters.
     Description: The database admin account password, between 8 to 41 alphanumeric characters.
     MaxLength: '41'
@@ -29,10 +29,10 @@ Parameters:
 
   InstanceType:
     Type: String
-    Default: 'db.t2.micro'
+    Default: 'db.t2.small'
 
 
-Mappings:
+Resources:
 
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -65,9 +65,10 @@ Mappings:
       MasterUsername: !Ref DatabaseUsername
       MasterUserPassword: !Ref DatabasePassword
       Engine: aurora
-      EngineMode: serverless
+      #EngineMode: serverless
       DBSubnetGroupName: !Ref DBSubnetGroup
-      VpcSecurityGroupIds: !Ref ClusterSecurityGroup
+      VpcSecurityGroupIds: 
+        - !Ref ClusterSecurityGroup
       DBClusterParameterGroupName: !Ref RDSDBClusterParameterGroup
       BackupRetentionPeriod: 7
       PreferredBackupWindow: 01:00-02:00
@@ -80,7 +81,6 @@ Mappings:
       DBParameterGroupName: !Ref RDSDBParameterGroup
       Engine: aurora
       DBClusterIdentifier: !Ref RDSCluster
-      MultiAZ: true
       PubliclyAccessible: 'true'
       AvailabilityZone:
         Fn::ImportValue:
@@ -94,7 +94,6 @@ Mappings:
       DBParameterGroupName: !Ref RDSDBParameterGroup
       Engine: aurora
       DBClusterIdentifier: !Ref RDSCluster
-      MultiAZ: true
       PubliclyAccessible: 'true'
       AvailabilityZone:
         Fn::ImportValue:

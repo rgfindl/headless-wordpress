@@ -10,16 +10,16 @@ IaC really shines when you need to spin up a new environment.  Lets say you get 
 to be on their own instance.  You can be up in running withing the hour.
 
 This project contains 5 CloudFormation scripts.  They must be created in order because they depend on each other:
-1.) VPC
-2.) ECS
-3.) RDS
-4.) ECR
-5.) Wordpress
+1. VPC
+2. ECS
+3. RDS
+4. ECR
+5. Wordpress
 
 # Prerequisites
 - [AWS Account](https://aws.amazon.com/)
 - [EC2 Key Pair](https://console.aws.amazon.com/ec2/v2/home)
-- [cim.sh](https://cim.sh/) - `npm install -g cim`
+- cim - (`npm install -g cim`)
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/installing.html) 
 
 
@@ -46,7 +46,7 @@ This creates a [Relational Database Service](https://aws.amazon.com/rds/) databa
 > Amazon Relational Database Service (Amazon RDS) makes it easy to set up, operate, and scale a relational database in the cloud.
 ```
 cd rds
-cim stack-up
+export DatabaseUsername="???"; export DatabasePassword="???"; cim stack-up
 ```
 
 ## ECR
@@ -60,14 +60,17 @@ cim stack-up
 ### Wordpress
 Before we can launch this cloudformation stack.  We need to push our service image to ECR.
 #### Push Image
+```
+cd wordpress/src
+```
 - [Registry Authentication](http://docs.aws.amazon.com/AmazonECR/latest/userguide/Registries.html#registry_auth)
   - `aws ecr get-login --registry-ids <account-id>`
   - copy/past output to perform docker login,  also append `/headless-wp` to the repository url.
 - Build Image
-  - `docker build -t service1:<version> .`
+  - `docker build -t headless-wp:<version> .`
 - [Push Image](http://docs.aws.amazon.com/AmazonECR/latest/userguide/docker-push-ecr-image.html)
-  - `docker tag service1:<version> <account-id>.dkr.ecr.<region>.amazonaws.com/headless-wp`
-  - `docker tag service1:<version> <account-id>.dkr.ecr.<region>.amazonaws.com/headless-wp:<version>`
+  - `docker tag headless-wp:<version> <account-id>.dkr.ecr.<region>.amazonaws.com/headless-wp:latest`
+  - `docker tag headless-wp:<version> <account-id>.dkr.ecr.<region>.amazonaws.com/headless-wp:<version>`
   - `docker push <account-id>.dkr.ecr.<region>.amazonaws.com/headless-wp`
 
 #### Update Version
@@ -81,18 +84,16 @@ cd wordpress
 cim stack-up
 ```
 
-The `ServiceUrl` output parameter will the the url to your new Wordpress site.
-
 # Wordpress
-Your new Wordpress site is now available.  Navigate to the `ServiceUrl` url, from the previous step, to get started.
+Congratulations, your new Wordpress site is now available.  
 
 First run through the Wordpress setup wizard.
 
-Now lets enable some of the plugins we added.
+Next enable some of the plugins we added.
 
-Add some posts and pages.
+Add a few blog posts and pages.
 
-Check out the API.
+Then check out the API. Ex: `https://<cdn-url>/wp-json/wp/v2/posts`
 
 # Tear down
 ```

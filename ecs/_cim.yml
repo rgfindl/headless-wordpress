@@ -11,6 +11,9 @@ stack:
   parameters:
     KeyPairName: 'bluefineng'
     VPCStack: 'headless-wp-vpc'
+    TLD: 'bluefineng.com'
+    Domain: 'cms.bluefineng.com'
+    SSL: 'arn:aws:acm:us-east-1:132093761664:certificate/7a872cf1-4845-46f5-9a05-6183bafad0c2'
 
   #
   # Define stack capabilities required.

@@ -1,6 +1,6 @@
 version: 0.1
 stack:
-  name: headless-wp # Note: Update this with your stack name
+  name: headless-wp-service # Note: Update this with your stack name
   template:
     file: wp.stack.yml
     bucket: cim-stack-artifacts # Note: Update this with your bucket name.  Stacks are uploaded here prior to deployment.'
@@ -11,15 +11,19 @@ stack:
   parameters:
     VPCStack: 'headless-wp-vpc'
     ECSStack: 'headless-wp-ecs'
+    RDSStack: 'headless-wp-rds'
     ECRStack: 'headless-wp-ecr'
     Version: '1.0.0'
-    Path: '/'
+    Path: '/*'
+    TLD: 'bluefineng.com'
+    Domain: 'cdn.bluefineng.com'
+    SSL: 'arn:aws:acm:us-east-1:132093761664:certificate/7a872cf1-4845-46f5-9a05-6183bafad0c2'
 
   #
   # Define stack capabilities required.
   #
   capabilities:
-    - 'CAPABILITY_IAM'
+    - 'CAPABILITY_NAMED_IAM'
 
   #
   # Define global tags.

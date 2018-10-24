@@ -52,13 +52,19 @@ Parameters:
 
   Domain:
     Type: String
-    Description: Domain name for your api (api.example.com)
+    Description: Domain name for your cms (cms.example.com)
+    Default: ''
+
+  SSL:
+    Type: String
+    Description: SSL Arn for your Domain
     Default: ''
 
 Conditions:
   UseCustomDomain: !And
     - !Not [!Equals [!Ref TLD, '']]
     - !Not [!Equals [!Ref Domain, '']]
+    - !Not [!Equals [!Ref SSL, '']]
 
 Mappings:
 
@@ -140,22 +146,6 @@ Resources:
         # Only allow inbound access to ECS from the ELB
         - SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
           IpProtocol: -1
-
-  #
-  # SSL
-  #
-
-  #
-  # SSL Certificate needed by CloudFront.
-  #
-  SSL:
-    Type: AWS::CertificateManager::Certificate
-    Condition: UseCustomDomain
-    Properties:
-      DomainName: !Ref Domain
-      DomainValidationOptions:
-        - DomainName: !Ref Domain
-          ValidationDomain: !Ref TLD
 
   #
   # Load Balancers
@@ -374,7 +364,7 @@ Outputs:
     Export:
       Name: !Sub '${AWS::StackName}-LoadBalancerListenerHttp'
   LoadBalancerListenerHttps:
-    Condition: UseCostomDomain
+    Condition: UseCustomDomain
     Value: !Ref 'LoadBalancerListenerHttps'
     Export:
       Name: !Sub '${AWS::StackName}-LoadBalancerListenerHttps'
@@ -390,3 +380,9 @@ Outputs:
       - - 'https://'
         - !Ref Domain
         - '/'
+    Export:
+      Name: !Sub '${AWS::StackName}-CustomDomainUrl'
+  DefaultTargetGroup:
+    Value: !Ref DefaultTargetGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-DefaultTargetGroup'

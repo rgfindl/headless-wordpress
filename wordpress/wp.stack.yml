@@ -24,7 +24,142 @@ Parameters:
     Type: String
     Default: 'latest'
     Description: Service version
+
+  ListenerRulePriority:
+    Type: Number
+    Default: 2
+
+  TLD:
+    Type: String
+    Description: TLD name needed by Route53 to perform DNS (example.com)
+    Default: ''
+
+  Domain:
+    Type: String
+    Description: Domain name for your api (api.example.com)
+    Default: ''
+
+  SSL:
+    Type: String
+    Description: SSL Arn for your Domain
+    Default: ''
+
+Conditions:
+  UseCustomDomain: !And
+    - !Not [!Equals [!Ref TLD, '']]
+    - !Not [!Equals [!Ref Domain, '']]
+    - !Not [!Equals [!Ref SSL, '']]
+
 Resources:
+
+  #
+  # Wordpress media files bucket
+  #
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: 'index.html'
+        ErrorDocument: '404.html'
+
+  #
+  # CloudFront CDN
+  #
+  CDN:
+    Type: AWS::CloudFront::Distribution
+    DependsOn: MediaBucket
+    Properties:
+      DistributionConfig:
+        Aliases: !If [UseCustomDomain, [!Ref Domain], !Ref "AWS::NoValue"]
+        Enabled: true
+        PriceClass: 'PriceClass_All'
+        DefaultCacheBehavior:
+          TargetOriginId: !Ref MediaBucket
+          ViewerProtocolPolicy: !If [UseCustomDomain, "redirect-to-https", "allow-all"]
+          MinTTL: 0
+          AllowedMethods:
+            - 'HEAD'
+            - 'GET'
+          CachedMethods:
+            - 'HEAD'
+            - 'GET'
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+        CacheBehaviors:
+          -
+            TargetOriginId: !Ref MediaBucket
+            PathPattern: '/wp-content/*'
+            ViewerProtocolPolicy: !If [UseCustomDomain, "redirect-to-https", "allow-all"]
+            AllowedMethods:
+              - 'HEAD'
+              - 'GET'
+            CachedMethods:
+              - 'HEAD'
+              - 'GET'
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+          -
+            TargetOriginId: 'wp-alb'
+            PathPattern: '/wp-json/*'
+            MaxTTL: 60000
+            DefaultTTL: 10000
+            ViewerProtocolPolicy: !If [UseCustomDomain, "redirect-to-https", "allow-all"]
+            AllowedMethods:
+              - 'HEAD'
+              - 'GET'
+            CachedMethods:
+              - 'HEAD'
+              - 'GET'
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+        Origins:
+          -
+            Id: !Ref MediaBucket
+            DomainName: !Sub '${MediaBucket}.s3-website-${AWS::Region}.amazonaws.com'
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: 'http-only'
+          -
+            Id: 'wp-alb'
+            DomainName: 
+                Fn::ImportValue:
+                  !Sub "${ECSStack}-LoadBalancerUrl"
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: !If [UseCustomDomain, "https-only", "http-only"]
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: 'none'
+        ViewerCertificate:
+          SslSupportMethod: !If [UseCustomDomain, "sni-only", !Ref "AWS::NoValue"]
+          MinimumProtocolVersion: !If [UseCustomDomain, "TLSv1", !Ref "AWS::NoValue"]
+          AcmCertificateArn: !If [UseCustomDomain, !Ref SSL, !Ref "AWS::NoValue"]
+          CloudFrontDefaultCertificate: !If [UseCustomDomain, !Ref "AWS::NoValue", true]
+
+  #
+  # Route53 DNS record set to map our domain to our CDN
+  #
+  DomainDNS:
+    Type: AWS::Route53::RecordSetGroup
+    Condition: UseCustomDomain
+    Properties:
+      HostedZoneName: !Sub '${TLD}.'
+      RecordSets:
+        -
+          Name: !Ref Domain
+          Type: 'A'
+          AliasTarget:
+            HostedZoneId: 'Z2FDTNDATAQYW2' # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-aliastarget.html#cfn-route53-aliastarget-hostedzoneid
+            DNSName: !GetAtt CDN.DomainName
 
   CloudWatchLogsGroup:
     Type: AWS::Logs::LogGroup
@@ -70,10 +205,39 @@ Resources:
                 }]
             }
 
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ecs-task-${AWS::StackName}
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+            Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub ecs-service-${AWS::StackName}
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                Resource:
+                  - !Sub 'arn:aws:s3:::${MediaBucket}'
+                  - !Sub 'arn:aws:s3:::${MediaBucket}/*'
+
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    DependsOn: 
+      - CDN
+      - MediaBucket
     Properties:
       Family: !Ref AWS::StackName
+      TaskRoleArn: !GetAtt TaskRole.Arn
       ContainerDefinitions:
         - Name: !Ref AWS::StackName
           Essential: true
@@ -85,24 +249,54 @@ Resources:
               }
           Memory: 128
           PortMappings:
-            - ContainerPort: 8000
+            - ContainerPort: 80
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-group: !Ref AWS::StackName
               awslogs-region: !Ref AWS::Region
           Environment:
-            WORDPRESS_DB_HOST: 
-              Fn::ImportValue:
-                !Sub "${RDSStack}-RDSClusterEndpoint"
-            WORDPRESS_DB_USER: 
-              Fn::ImportValue:
-                !Sub "${RDSStack}-DatabaseUsername"
-            WORDPRESS_DB_PASSWORD: 
-              Fn::ImportValue:
-                !Sub "${RDSStack}-DatabasePassword"
-            WORDPRESS_ADDITIONAL_CONFIG: |
-              define( 'AS3CF_AWS_USE_EC2_IAM_ROLE', true );
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: AWS_ACCOUNT_ID
+              Value: !Ref AWS::AccountId
+            - Name: WORDPRESS_DB_HOST
+              Value:
+                Fn::ImportValue:
+                  !Sub "${RDSStack}-RDSClusterEndpoint"
+            - Name: WORDPRESS_DB_USER
+              Value:
+                Fn::ImportValue:
+                  !Sub "${RDSStack}-DatabaseUsername"
+            - Name: WORDPRESS_DB_PASSWORD
+              Value:
+                Fn::ImportValue:
+                  !Sub "${RDSStack}-DatabasePassword"
+            - Name: WORDPRESS_CONFIG_EXTRA
+              Value: !Sub 
+                - |
+                  define( 'AS3CF_AWS_USE_EC2_IAM_ROLE', true );
+                  define( 'AS3CF_SETTINGS', serialize( array(
+                    'bucket' => '${MediaBucket}',
+                    'copy-to-s3' => true,
+                    'serve-from-s3' => true,
+                    'domain' => 'cloudfront',
+                    'cloudfront' => '${DomainName}',
+                    'enable-object-prefix' => true,
+                    'object-prefix' => 'wp-content/uploads/',
+                    'force-https' => ${ForceHttps},
+                    'remove-local-file' => true
+                  ) ) );
+                  define( 'WP_HOME', '${CMSUrl}' );
+                  define( 'WP_SITEURL', '${CMSUrl}' );
+                - {
+                  MediaBucket: !Ref MediaBucket,
+                  DomainName: !If [UseCustomDomain, !Ref Domain, !GetAtt CDN.DomainName],
+                  ForceHttps: !If [UseCustomDomain, 'true', 'false'],
+                  CMSUrl: !If [UseCustomDomain, { "Fn::ImportValue" : {"Fn::Sub": "${ECSStack}-CustomDomainUrl" } }, {"Fn::Sub": ["http://${Url}", {"Url": { "Fn::ImportValue" : {"Fn::Sub": "${ECSStack}-LoadBalancerUrl" } }}]}]
+                  } 
+            - Name: WORDPRESS_DEBUG
+              Value: '1'
 
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -113,20 +307,41 @@ Resources:
       Port: 80
       Protocol: HTTP
       Matcher:
-        HttpCode: 200-299
+        HttpCode: 200-399
       HealthCheckIntervalSeconds: 10
       HealthCheckPath: '/'
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
+      TargetGroupAttributes: 
+        - Key: 'stickiness.enabled'
+          Value: 'true'
+        - Key: 'stickiness.type'
+          Value: 'lb_cookie'
 
-  ListenerRule:
+  ListenerRuleHttp:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
       ListenerArn:
         Fn::ImportValue:
-          !Sub "${ECSStack}-LoadBalancerListener"
-      Priority: 2
+          !Sub "${ECSStack}-LoadBalancerListenerHttp"
+      Priority: !Ref ListenerRulePriority
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - !Ref Path
+      Actions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+
+  ListenerRuleHttps:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Condition: UseCustomDomain
+    Properties:
+      ListenerArn:
+        Fn::ImportValue:
+          !Sub "${ECSStack}-LoadBalancerListenerHttps"
+      Priority: !Ref ListenerRulePriority
       Conditions:
         - Field: path-pattern
           Values:
@@ -148,7 +363,7 @@ Resources:
         MinimumHealthyPercent: 50
       LoadBalancers:
         - ContainerName: !Ref AWS::StackName
-          ContainerPort: 8000
+          ContainerPort: 80
           TargetGroupArn: !Ref TargetGroup
 
 Outputs:
@@ -164,10 +379,11 @@ Outputs:
     Value: !Ref 'CloudWatchLogsGroup'
     Export:
       Name: !Sub '${AWS::StackName}-CloudWatchLogsGroup'
-  ServiceUrl: 
-    Value: !Sub
-      - "${URL}${Path}"
-      - {
-          URL: { "Fn::ImportValue" : {"Fn::Sub": "${ECSStack}-LoadBalancerUrl" } },
-          Path: !Ref Path
-        }
+  CDNUrl:
+    Value: !If [UseCustomDomain, !Ref Domain, !GetAtt CDN.DomainName]
+    Export:
+      Name: !Sub '${AWS::StackName}-CDNUrl'
+  CDN:
+    Value: !Ref CDN
+    Export:
+      Name: !Sub '${AWS::StackName}-CDN'

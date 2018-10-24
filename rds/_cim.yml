@@ -4,13 +4,17 @@ stack:
   template:
     file: rds.stack.yml
     bucket: cim-stack-artifacts # Note: Update this with your bucket name.  Stacks are uploaded here prior to deployment.'
-
+  policy:
+    file: rds.policy.json
+    bucket: cim-stack-artifacts
   #
   # Define stack input parameters.
   #
   parameters:
     VPCStack: 'headless-wp-vpc'
     ECSStack: 'headless-wp-ecs'
+    DatabaseUsername: '${env.DatabaseUsername}'
+    DatabasePassword: '${env.DatabasePassword}'
 
   #
   # Define stack capabilities required.
