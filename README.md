@@ -1,7 +1,10 @@
-# AWS EKS Kubernetes cluster using AWS CloudFormation
-Quikly spin up an AWS EKS Kubernetes cluster using AWS CloudFormation.
+# Headless Wordpress Deployment using AWS CloudFormation
+Quikly spin up a headless Wordpress deployment using AWS CloudFormation.
 
-[![](architecture.png)](architecture.png)
+[![](diagram1.png)](diagram1.png)
+
+
+[![](diagram2.png)](diagram2.png)
 
 Infrastructure as Code (IaC) is the recommended way to manage the cloud infrastructure that your
 application runs on.  IaC allows you to incrementailly add/remove infrastructure as your application changes.
