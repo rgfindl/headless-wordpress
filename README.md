@@ -1,5 +1,5 @@
 # Headless Wordpress Deployment using AWS CloudFormation
-Quikly spin up a headless Wordpress deployment using AWS CloudFormation.
+Quickly spin up a headless Wordpress deployment using AWS CloudFormation.
 
 [![](diagram1.png)](diagram1.png)
 
@@ -7,10 +7,10 @@ Quikly spin up a headless Wordpress deployment using AWS CloudFormation.
 [![](diagram2.png)](diagram2.png)
 
 Infrastructure as Code (IaC) is the recommended way to manage the cloud infrastructure that your
-application runs on.  IaC allows you to incrementailly add/remove infrastructure as your application changes.
+application runs on.  IaC allows you to incrementally add/remove infrastructure as your application changes.
 
 IaC really shines when you need to spin up a new environment.  Lets say you get a huge customer who wants
-to be on their own instance.  You can be up in running withing the hour.
+to be on their own instance.  You can be up in running within the hour.
 
 This project contains 5 CloudFormation scripts.  They must be created in order because they depend on each other:
 1. VPC
@@ -53,7 +53,7 @@ export DatabaseUsername="???"; export DatabasePassword="???"; cim stack-up
 ```
 
 ## ECR
-This creates an [Elastic Container Registry](https://aws.amazon.com/ecr/) that will hold the docker images of our wordpress service.
+This creates an [Elastic Container Registry](https://aws.amazon.com/ecr/) that will hold the docker images of our Wordpress service.
 > Amazon Elastic Container Registry (ECR) is a fully-managed Docker container registry that makes it easy for developers to store, manage, and deploy Docker container images.
 ```
 cd ecr
